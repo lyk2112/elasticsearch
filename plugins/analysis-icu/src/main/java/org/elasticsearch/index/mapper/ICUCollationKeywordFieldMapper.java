@@ -23,13 +23,17 @@ import com.ibm.icu.text.Collator;
 import com.ibm.icu.text.RawCollationKey;
 import com.ibm.icu.text.RuleBasedCollator;
 import com.ibm.icu.util.ULocale;
+
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexableField;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.MultiTermQuery;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.Version;
 import org.elasticsearch.common.io.stream.StreamOutput;
@@ -95,8 +99,8 @@ public class ICUCollationKeywordFieldMapper extends FieldMapper {
         }
 
         @Override
-        public void checkCompatibility(MappedFieldType otherFT, List<String> conflicts, boolean strict) {
-            super.checkCompatibility(otherFT, conflicts, strict);
+        public void checkCompatibility(MappedFieldType otherFT, List<String> conflicts) {
+            super.checkCompatibility(otherFT, conflicts);
             CollationFieldType other = (CollationFieldType) otherFT;
             if (!Objects.equals(collator, other.collator)) {
                 conflicts.add("mapper [" + name() + "] has different [collator]");
@@ -123,11 +127,12 @@ public class ICUCollationKeywordFieldMapper extends FieldMapper {
         }
 
         @Override
-        public Query nullValueQuery() {
-            if (nullValue() == null) {
-                return null;
+        public Query existsQuery(QueryShardContext context) {
+            if (hasDocValues()) {
+                return new DocValuesFieldExistsQuery(name());
+            } else {
+                return new TermQuery(new Term(FieldNamesFieldMapper.NAME, name()));
             }
-            return termQuery(nullValue(), null);
         }
 
         @Override
@@ -606,8 +611,8 @@ public class ICUCollationKeywordFieldMapper extends FieldMapper {
     }
 
     @Override
-    protected void doMerge(Mapper mergeWith, boolean updateAllTypes) {
-        super.doMerge(mergeWith, updateAllTypes);
+    protected void doMerge(Mapper mergeWith) {
+        super.doMerge(mergeWith);
 
         List<String> conflicts = new ArrayList<>();
         ICUCollationKeywordFieldMapper icuMergeWith = (ICUCollationKeywordFieldMapper) mergeWith;
@@ -750,6 +755,8 @@ public class ICUCollationKeywordFieldMapper extends FieldMapper {
 
         if (fieldType().hasDocValues()) {
             fields.add(getDVField.apply(fieldType().name(), binaryValue));
+        } else if (fieldType().indexOptions() != IndexOptions.NONE || fieldType().stored()) {
+            createFieldNamesField(context, fields);
         }
     }
 }

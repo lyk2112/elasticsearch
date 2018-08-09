@@ -189,7 +189,10 @@ setup() {
 
 @test "[SYSTEMD] start Elasticsearch with custom JVM options" {
     assert_file_exist $ESENVFILE
-    local temp=`mktemp -d`
+    # The custom config directory is not under /tmp or /var/tmp because
+    # systemd's private temp directory functionaly means different
+    # processes can have different views of what's in these directories
+    local temp=`mktemp -p /etc -d`
     cp "$ESCONFIG"/elasticsearch.yml "$temp"
     cp "$ESCONFIG"/log4j2.properties "$temp"
     touch "$temp/jvm.options"
@@ -245,4 +248,10 @@ setup() {
     wait_for_elasticsearch_status
     [ -d /var/run/elasticsearch ]
     systemctl stop elasticsearch.service
+}
+
+@test "[SYSTEMD] GC logs exist" {
+    start_elasticsearch_service
+    assert_file_exist /var/log/elasticsearch/gc.log.0.current
+    stop_elasticsearch_service
 }

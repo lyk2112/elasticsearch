@@ -39,9 +39,6 @@ setup:
 
 ---
 "pre_filter_shard_size with invalid parameter":
-  - skip:
-      version: " - 5.5.99"
-      reason:  this was added in 5.6.0
   - do:
       catch: /preFilterShardSize must be >= 1/
       search:
@@ -50,9 +47,6 @@ setup:
 
 ---
 "pre_filter_shard_size with shards that have no hit":
-  - skip:
-      version: " - 5.5.99"
-      reason:  this was added in 5.6.0
   - do:
       index:
         index: index_1
@@ -117,7 +111,8 @@ setup:
 
   - match: { _shards.total: 3 }
   - match: { _shards.successful: 3 }
-  - match: { _shards.skipped : 2} # skip 2 and execute one to fetch the actual empty result
+  # skip 2 and execute one to fetch the actual empty result  
+  - match: { _shards.skipped : 2} 
   - match: { _shards.failed: 0 }
   - match: { hits.total: 0 }
 
